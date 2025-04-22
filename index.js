@@ -1,4 +1,15 @@
-import { eventSource, event_types } from '../../../script.js';
+import { eventSource, event_types } from '../../../../script.js';
+import { extension_settings, getContext } from '../../../extensions.js';
+
+// 插件名称常量
+const pluginName = 'test-main';
+
+// 初始化插件设置
+if (!extension_settings[pluginName]) {
+  extension_settings[pluginName] = {
+    enabled: true,
+  };
+}
 
 // Function to add the log button to a message element
 function addLogButton(messageElement, mes) {
@@ -28,20 +39,74 @@ function addLogButton(messageElement, mes) {
 
 // Listen for when a new message is added to the chat DOM
 eventSource.on(event_types.MESSAGE_ADDED, (mes, messageElement) => {
+  if (!extension_settings[pluginName].enabled) return;
+
   // Wait a moment for the message element to be fully rendered, especially buttons
   setTimeout(() => {
     addLogButton(messageElement, mes);
   }, 100); // Small delay might help ensure .mes_buttons is ready
 });
 
-// Optional: Handle chat updates or re-renders if needed
-// eventSource.on(event_types.CHAT_UPDATED, () => {
-//     console.log('[test-main] Chat updated, checking messages for log buttons.');
-//     document.querySelectorAll('.mes').forEach(msgElement => {
-//         // This part is tricky as we don't have the 'mes' object directly here.
-//         // Would need a way to map msgElement back to its data or re-fetch.
-//         // Keeping it simple for now.
-//     });
-// });
+// Handle chat updates too, to reapply buttons after message changes
+eventSource.on(event_types.CHAT_UPDATED, () => {
+  if (!extension_settings[pluginName].enabled) return;
 
-console.log('[test-main] Plugin loaded.');
+  console.log('[test-main] Chat updated, checking messages for log buttons.');
+  setTimeout(() => {
+    document.querySelectorAll('.mes').forEach(msgElement => {
+      const messageId = msgElement.getAttribute('mesid');
+      if (messageId) {
+        const context = getContext();
+        const message = context.chat.find(m => m.mesid === messageId);
+        if (message) {
+          addLogButton(msgElement, message);
+        }
+      }
+    });
+  }, 100);
+});
+
+// 添加设置 UI
+function createSettings() {
+  const settingsHtml = `
+    <div id="test-main-settings" class="test-main-container">
+        <div class="inline-drawer">
+            <div class="inline-drawer-toggle inline-drawer-header">
+                <b>Test Plugin</b>
+                <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+            </div>
+            <div class="inline-drawer-content">
+                <div class="test-main-section">
+                    <div class="test-main-toggle-row">
+                        <span class="test-main-label">插件状态:</span>
+                        <select id="test-main-toggle">
+                            <option value="enabled">开启</option>
+                            <option value="disabled">关闭</option>
+                        </select>
+                    </div>
+                </div>
+                <hr class="sysHR">
+            </div>
+        </div>
+    </div>`;
+
+  // 将UI添加到SillyTavern扩展设置区域
+  $('#extensions_settings').append(settingsHtml);
+
+  // 设置事件监听器
+  $('#test-main-toggle').on('change', function () {
+    extension_settings[pluginName].enabled = $(this).val() === 'enabled';
+    console.log(`[test-main] Plugin ${extension_settings[pluginName].enabled ? 'enabled' : 'disabled'}`);
+  });
+
+  // 设置初始值
+  $('#test-main-toggle').val(extension_settings[pluginName].enabled ? 'enabled' : 'disabled');
+}
+
+// 扩展加载事件
+eventSource.on(event_types.EXTENSIONS_FIRST_LOAD, () => {
+  createSettings();
+  console.log('[test-main] Plugin loaded successfully.');
+});
+
+console.log('[test-main] Plugin initialized.');

@@ -15,3 +15,29 @@
 .test-main-log-button:hover {
   background-color: var(--background-color-tertiary, #ddd);
 }
+
+/* 设置 UI 样式 */
+.test-main-container {
+  margin-bottom: 1rem;
+}
+
+.test-main-section {
+  padding: 0.5rem;
+}
+
+.test-main-toggle-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.test-main-label {
+  margin-right: 1rem;
+  min-width: 80px;
+}
+
+#test-main-toggle {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #ccc);
+}
