@@ -1,5 +1,5 @@
-import { eventSource, event_types } from '../../../../script.js';
-import { extension_settings, getContext } from '../../../extensions.js';
+import { eventSource, event_types } from '../../script.js';
+import { extension_settings, getContext } from '../extensions.js';
 
 // 插件名称常量
 const pluginName = 'test-main';
@@ -14,24 +14,24 @@ if (!extension_settings[pluginName]) {
 // Function to add the log button to a message element
 function addLogButton(messageElement, mes) {
   // Find the area where message action buttons usually go
-  const buttonsContainer = messageElement.querySelector('.mes_buttons');
+  const buttonsContainer = $(messageElement).find('.mes_buttons');
 
   // Only proceed if the container exists and our button isn't already there
-  if (buttonsContainer && !buttonsContainer.querySelector('.test-main-log-button')) {
-    const button = document.createElement('button');
-    button.textContent = 'Log';
-    button.classList.add('test-main-log-button', 'fa-button'); // Added fa-button for some base styling if needed
-
-    button.addEventListener('click', event => {
-      event.stopPropagation(); // Prevent potential parent handlers
-      console.log('[test-main] Message Text:', mes.mes);
-      console.log('[test-main] Message Object:', mes);
-      toastr.info(`Message logged to console (ID: ${mes.mesid})`); // Provide visual feedback
-    });
+  if (buttonsContainer.length > 0 && buttonsContainer.find('.test-main-log-button').length === 0) {
+    const button = $('<button></button>')
+      .text('Log')
+      .addClass('test-main-log-button fa-button')
+      .on('click', function (event) {
+        event.stopPropagation(); // Prevent potential parent handlers
+        console.log('[test-main] Message Text:', mes.mes);
+        console.log('[test-main] Message Object:', mes);
+        toastr.info(`Message logged to console (ID: ${mes.mesid})`); // Provide visual feedback
+      });
 
     // Prepend the button to the container
     buttonsContainer.prepend(button);
-  } else if (!buttonsContainer) {
+    console.log('[test-main] Button added to message:', mes.mesid);
+  } else if (buttonsContainer.length === 0) {
     // Fallback or logging if the expected container isn't found
     console.warn('[test-main] Could not find .mes_buttons container for message:', mes.mesid);
   }
@@ -40,6 +40,7 @@ function addLogButton(messageElement, mes) {
 // Listen for when a new message is added to the chat DOM
 eventSource.on(event_types.MESSAGE_ADDED, (mes, messageElement) => {
   if (!extension_settings[pluginName].enabled) return;
+  console.log('[test-main] MESSAGE_ADDED event triggered for message:', mes.mesid);
 
   // Wait a moment for the message element to be fully rendered, especially buttons
   setTimeout(() => {
@@ -51,15 +52,20 @@ eventSource.on(event_types.MESSAGE_ADDED, (mes, messageElement) => {
 eventSource.on(event_types.CHAT_UPDATED, () => {
   if (!extension_settings[pluginName].enabled) return;
 
-  console.log('[test-main] Chat updated, checking messages for log buttons.');
+  console.log('[test-main] CHAT_UPDATED event triggered, checking messages for log buttons.');
   setTimeout(() => {
-    document.querySelectorAll('.mes').forEach(msgElement => {
-      const messageId = msgElement.getAttribute('mesid');
+    $('.mes').each(function () {
+      const messageElement = this;
+      const messageId = $(messageElement).attr('mesid');
       if (messageId) {
-        const context = getContext();
-        const message = context.chat.find(m => m.mesid === messageId);
-        if (message) {
-          addLogButton(msgElement, message);
+        try {
+          const context = getContext();
+          const message = context.chat.find(m => m.mesid === messageId);
+          if (message) {
+            addLogButton(messageElement, message);
+          }
+        } catch (error) {
+          console.error('[test-main] Error processing message:', messageId, error);
         }
       }
     });
@@ -103,10 +109,57 @@ function createSettings() {
   $('#test-main-toggle').val(extension_settings[pluginName].enabled ? 'enabled' : 'disabled');
 }
 
+// 在页面初始加载时添加按钮到已有消息
+function addButtonsToExistingMessages() {
+  console.log('[test-main] Checking for existing messages...');
+  try {
+    const context = getContext();
+    if (!context || !context.chat) {
+      console.warn('[test-main] No chat context available');
+      return;
+    }
+
+    $('.mes').each(function () {
+      const messageElement = this;
+      const messageId = $(messageElement).attr('mesid');
+      if (messageId) {
+        const message = context.chat.find(m => m.mesid === messageId);
+        if (message) {
+          addLogButton(messageElement, message);
+        }
+      }
+    });
+  } catch (error) {
+    console.error('[test-main] Error adding buttons to existing messages:', error);
+  }
+}
+
 // 扩展加载事件
 eventSource.on(event_types.EXTENSIONS_FIRST_LOAD, () => {
+  console.log('[test-main] EXTENSIONS_FIRST_LOAD event triggered');
   createSettings();
-  console.log('[test-main] Plugin loaded successfully.');
+  console.log('[test-main] Plugin loaded successfully. Settings UI created.');
 });
 
-console.log('[test-main] Plugin initialized.');
+// 扩展设置加载后事件 - 这是一个更可靠的点来添加UI元素
+eventSource.on(event_types.SETTINGS_LOADED, () => {
+  console.log('[test-main] SETTINGS_LOADED event triggered');
+  // 调用一次，确保设置正确加载
+  if ($('#test-main-settings').length === 0) {
+    createSettings();
+  }
+});
+
+// 角色选择变化事件 - 当切换角色时，确保为新的消息添加按钮
+eventSource.on(event_types.CHARACTER_SELECTED, () => {
+  console.log('[test-main] CHARACTER_SELECTED event triggered');
+  setTimeout(addButtonsToExistingMessages, 500);
+});
+
+// 聊天加载后执行 - 添加按钮到所有现有消息
+eventSource.on(event_types.CHAT_CHANGED, chatId => {
+  console.log('[test-main] CHAT_CHANGED event triggered, chatId:', chatId);
+  setTimeout(addButtonsToExistingMessages, 500);
+});
+
+console.log('[test-main] Plugin initialized with enhanced logging and jQuery selectors.');
