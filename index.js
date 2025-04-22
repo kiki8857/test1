@@ -211,6 +211,8 @@ $(document).ready(function () {
         return;
       }
 
+      console.log('[test-main] Checking for existing messages...');
+
       // 如果没有传递上下文参数，尝试获取当前上下文
       if (!context) {
         try {
@@ -223,38 +225,71 @@ $(document).ready(function () {
 
       // 验证上下文
       if (!context || !context.chat || !Array.isArray(context.chat)) {
-        debugLog('无效的聊天上下文，跳过添加按钮');
+        debugLog('无效的聊天上下文，跳过添加按钮', {
+          hasContext: !!context,
+          hasChat: !!(context && context.chat),
+          isArray: !!(context && context.chat && Array.isArray(context.chat)),
+        });
+        // 如果没有有效上下文，尝试添加按钮但不依赖上下文数据
+        tryAddButtonsWithoutContext();
         return;
       }
 
       // 获取所有消息元素
       const messageElements = document.querySelectorAll('.mes');
-      debugLog(`找到 ${messageElements.length} 个消息元素`);
+      debugLog(`找到 ${messageElements.length} 条可能的消息`);
 
       if (messageElements.length === 0) {
         return;
       }
 
+      // 记录context.chat的基本信息
+      debugLog(`聊天数据包含 ${context.chat.length} 条消息`);
+      debugLog(`聊天ID: ${context.chatId || '未知'}`);
+
+      // 显示前几条消息的ID用于调试
+      for (let i = 0; i < Math.min(5, context.chat.length); i++) {
+        const msg = context.chat[i];
+        debugLog(
+          `聊天数据中的消息 #${i}: ID=${msg.mesid}, 发送者=${msg.name || '未知'}, 内容长度=${(msg.mes || '').length}`,
+        );
+      }
+
       // 构建一个消息ID到消息对象的映射
       const messageMap = {};
-      context.chat.forEach(message => {
+      context.chat.forEach((message, index) => {
         if (message && message.mesid !== undefined) {
           messageMap[message.mesid] = message;
+          debugLog(`映射消息ID ${message.mesid} 到索引 ${index}`);
         }
       });
 
       // 遍历每个消息元素
-      messageElements.forEach(element => {
+      messageElements.forEach((element, index) => {
         try {
+          // 增加更详细的DOM元素信息
+          debugLog(`消息 #${index} 类名: ${element.className}`);
+          debugLog(`消息 #${index} 是否有 .mes_buttons: ${!!element.querySelector('.mes_buttons')}`);
+          debugLog(`消息 #${index} 是否有 .mes_block: ${!!element.querySelector('.mes_block')}`);
+          debugLog(`消息 #${index} 是否有 .mes_text: ${!!element.querySelector('.mes_text')}`);
+
           const mesId = element.getAttribute('mesid');
           let message = null;
 
-          if (mesId !== null && messageMap[mesId]) {
+          if (!mesId) {
+            debugLog(`消息元素没有 mesid 属性: ${element.className}`);
+          } else if (messageMap[mesId]) {
             message = messageMap[mesId];
             debugLog(`找到mesid=${mesId}的消息对象`);
           } else {
-            // 没有找到匹配的消息对象，但仍然继续添加按钮
-            debugLog(`未找到mesid=${mesId}的消息对象，将直接从DOM中获取文本`);
+            // 尝试通过其他方式匹配，比如索引
+            debugLog(`消息ID ${mesId} 在聊天数据中未找到匹配`);
+
+            // 尝试使用索引匹配（如果消息数量相同）
+            if (index < context.chat.length) {
+              message = context.chat[index];
+              debugLog(`尝试使用索引匹配: 使用聊天数据索引 ${index} 的消息（ID: ${message.mesid || '未知'}）`);
+            }
           }
 
           // 无论是否找到消息对象，都尝试添加按钮
@@ -274,6 +309,30 @@ $(document).ready(function () {
     } catch (error) {
       console.error('[test-main] 添加按钮到现有消息时出错:', error);
     }
+  }
+
+  // 在没有上下文的情况下尝试添加按钮
+  function tryAddButtonsWithoutContext() {
+    debugLog('在没有有效上下文的情况下尝试添加按钮');
+    const messageElements = document.querySelectorAll('.mes');
+
+    if (messageElements.length === 0) {
+      debugLog('没有找到消息元素');
+      return;
+    }
+
+    debugLog(`找到 ${messageElements.length} 条消息，将以强制模式添加按钮`);
+
+    messageElements.forEach((element, index) => {
+      try {
+        debugLog(`处理消息元素 #${index}`);
+        addButtonForce(element);
+      } catch (error) {
+        console.error('[test-main] 在强制模式下添加按钮时出错:', error);
+      }
+    });
+
+    debugLog('完成所有消息的强制按钮添加');
   }
 
   // 扩展加载事件
