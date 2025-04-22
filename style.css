@@ -1,0 +1,17 @@
+/* Basic styling for the log button */
+.test-main-log-button {
+  /* Inherit some styles from fa-button if possible, or define basics */
+  padding: 2px 6px;
+  margin-left: 4px; /* Add some space next to other buttons */
+  font-size: 0.8em;
+  cursor: pointer;
+  border: 1px solid var(--border-color-secondary, #ccc);
+  background-color: var(--background-color-secondary, #eee);
+  color: var(--text-color, #000);
+  border-radius: 3px;
+  order: -1; /* Try to place it first in the button container */
+}
+
+.test-main-log-button:hover {
+  background-color: var(--background-color-tertiary, #ddd);
+}

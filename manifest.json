@@ -1,0 +1,10 @@
+{
+  "name": "test-main",
+  "display_name": "Test Plugin - Log Message",
+  "version": "1.0.0",
+  "author": "AI Assistant",
+  "description": "Adds a button to log message text to the console.",
+  "js": "index.js",
+  "css": "style.css",
+  "loading_order": 999
+}
