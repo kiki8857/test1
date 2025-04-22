@@ -8,6 +8,7 @@ const pluginName = 'test-main';
 if (!extension_settings[pluginName]) {
   extension_settings[pluginName] = {
     enabled: true,
+    forceButtons: true, // 新增：强制添加按钮，即使没有匹配的消息数据
   };
 }
 
@@ -24,17 +25,114 @@ function debugLog(...args) {
 $(document).ready(function () {
   console.log('[test-main] Document ready, initializing plugin...');
 
+  // Function to add the log button to a message element - 即使没有消息数据也能添加按钮
+  function addButtonForce(messageElement) {
+    // 从DOM中提取消息文本（没有消息对象时的备用方案）
+    const messageTextEl = $(messageElement).find('.mes_text');
+    const messageText = messageTextEl.length > 0 ? messageTextEl.text().trim() : '未找到消息文本';
+    const messageId = $(messageElement).attr('mesid') || '未知ID';
+
+    debugLog(`强制为消息元素添加按钮，提取的文本: ${messageText.substring(0, 30)}...`);
+
+    // 检查元素是否已经有按钮
+    if ($(messageElement).find('.test-main-log-button').length > 0) {
+      debugLog(`消息元素已有按钮，跳过`);
+      return;
+    }
+
+    // 尝试添加到.mes_buttons
+    const buttonsContainer = $(messageElement).find('.mes_buttons');
+    if (buttonsContainer.length > 0) {
+      debugLog(`找到 .mes_buttons 容器`);
+
+      const button = $('<button></button>')
+        .text('Log')
+        .addClass('test-main-log-button fa-button')
+        .css({
+          'background-color': '#3498db', // 蓝色背景使按钮更明显
+          color: 'white',
+          border: 'none',
+          padding: '2px 8px',
+          'margin-right': '5px',
+          'border-radius': '3px',
+          cursor: 'pointer',
+        })
+        .on('click', function (event) {
+          event.stopPropagation();
+          console.log('[test-main] 消息文本:', messageText);
+          console.log('[test-main] 消息元素:', messageElement);
+
+          try {
+            if (typeof toastr !== 'undefined') {
+              toastr.info(`已记录消息 (ID: ${messageId})`);
+            }
+          } catch (error) {
+            console.error('[test-main] Error showing notification:', error);
+          }
+        });
+
+      buttonsContainer.prepend(button);
+      console.log('[test-main] 强制模式: 按钮已添加到消息:', messageId);
+      return true;
+    }
+
+    // 如果没有.mes_buttons，尝试添加到.mes_block
+    const messageBlock = $(messageElement).find('.mes_block');
+    if (messageBlock.length > 0) {
+      debugLog(`找到 .mes_block 容器`);
+
+      const button = $('<button></button>')
+        .text('Log')
+        .addClass('test-main-log-button fa-button')
+        .css({
+          position: 'absolute',
+          top: '5px',
+          right: '5px',
+          'z-index': '100',
+          'background-color': '#3498db',
+          color: 'white',
+          border: 'none',
+          padding: '2px 8px',
+          'border-radius': '3px',
+          cursor: 'pointer',
+        })
+        .on('click', function (event) {
+          event.stopPropagation();
+          console.log('[test-main] 消息文本:', messageText);
+          console.log('[test-main] 消息元素:', messageElement);
+        });
+
+      messageBlock.css('position', 'relative');
+      messageBlock.append(button);
+      console.log('[test-main] 强制模式: 按钮已添加到消息块');
+      return true;
+    }
+
+    return false;
+  }
+
   // Function to add the log button to a message element
   function addLogButton(messageElement, mes) {
-    // Skip if plugin disabled or message invalid
-    if (!extension_settings[pluginName].enabled || !mes || !mes.mesid) return;
+    // Skip if plugin disabled
+    if (!extension_settings[pluginName].enabled) return false;
+
+    // 如果没有提供消息对象且启用了强制模式，使用强制添加函数
+    if (!mes && extension_settings[pluginName].forceButtons) {
+      return addButtonForce(messageElement);
+    }
+
+    // Skip if message invalid
+    if (!mes || !mes.mesid) {
+      debugLog(`跳过无效消息: ${mes ? 'No mesid' : 'No message object'}`);
+      return false;
+    }
 
     debugLog(`尝试为消息 ${mes.mesid} 添加按钮`);
 
     // 检查元素是否已经有按钮
     if ($(messageElement).find('.test-main-log-button').length > 0) {
       debugLog(`消息 ${mes.mesid} 已有按钮，跳过`);
-      return;
+      return false;
     }
 
     // 以下使用5种不同方法尝试添加按钮，确保至少一个能成功
@@ -47,6 +145,15 @@ $(document).ready(function () {
       const button = $('<button></button>')
         .text('Log')
         .addClass('test-main-log-button fa-button')
+        .css({
+          'background-color': '#3498db', // 蓝色背景使按钮更明显
+          color: 'white',
+          border: 'none',
+          padding: '2px 8px',
+          'margin-right': '5px',
+          'border-radius': '3px',
+          cursor: 'pointer',
+        })
         .on('click', function (event) {
           event.stopPropagation();
           console.log('[test-main] Message Text:', mes.mes);
@@ -63,7 +170,7 @@ $(document).ready(function () {
 
       buttonsContainer.prepend(button);
       console.log('[test-main] 方法一: 按钮已添加到消息:', mes.mesid);
-      return;
+      return true;
     }
 
     // 2. 方法二：尝试添加到.mes_block（大多数消息的主容器）
@@ -79,6 +186,12 @@ $(document).ready(function () {
           top: '5px',
           right: '5px',
           'z-index': '100',
+          'background-color': '#3498db',
+          color: 'white',
+          border: 'none',
+          padding: '2px 8px',
+          'border-radius': '3px',
+          cursor: 'pointer',
         })
         .on('click', function (event) {
           event.stopPropagation();
@@ -90,7 +203,7 @@ $(document).ready(function () {
       messageBlock.css('position', 'relative');
       messageBlock.append(button);
       console.log('[test-main] 方法二: 按钮已添加到消息块:', mes.mesid);
-      return;
+      return true;
     }
 
     // 3. 方法三：尝试添加到.mes_text（消息文本容器）
@@ -106,6 +219,14 @@ $(document).ready(function () {
       const button = $('<button></button>')
         .text('Log')
         .addClass('test-main-log-button fa-button')
+        .css({
+          'background-color': '#3498db',
+          color: 'white',
+          border: 'none',
+          padding: '2px 8px',
+          'border-radius': '3px',
+          cursor: 'pointer',
+        })
         .on('click', function (event) {
           event.stopPropagation();
           console.log('[test-main] Message Text:', mes.mes);
@@ -115,7 +236,7 @@ $(document).ready(function () {
       buttonWrapper.append(button);
       textContainer.append(buttonWrapper);
       console.log('[test-main] 方法三: 按钮已添加到消息文本后:', mes.mesid);
-      return;
+      return true;
     }
 
     // 4. 方法四：直接添加到消息元素本身
@@ -127,6 +248,12 @@ $(document).ready(function () {
       .css({
         display: 'block',
         margin: '5px auto',
+        'background-color': '#3498db',
+        color: 'white',
+        border: 'none',
+        padding: '2px 8px',
+        'border-radius': '3px',
+        cursor: 'pointer',
       })
       .on('click', function (event) {
         event.stopPropagation();
@@ -136,6 +263,7 @@ $(document).ready(function () {
 
     $(messageElement).append(button);
     console.log('[test-main] 方法四: 按钮已直接添加到消息元素:', mes.mesid);
+    return true;
   }
 
   // 在页面初始加载时添加按钮到已有消息
@@ -152,6 +280,7 @@ $(document).ready(function () {
     allMessages.each(function (index) {
       const messageElement = this;
       debugLog(`消息 #${index} 类名:`, $(messageElement).attr('class'));
+      debugLog(`消息 #${index} mesid:`, $(messageElement).attr('mesid'));
       debugLog(`消息 #${index} 是否有 .mes_buttons:`, $(messageElement).find('.mes_buttons').length > 0);
       debugLog(`消息 #${index} 是否有 .mes_block:`, $(messageElement).find('.mes_block').length > 0);
       debugLog(`消息 #${index} 是否有 .mes_text:`, $(messageElement).find('.mes_text').length > 0);
@@ -159,27 +288,76 @@ $(document).ready(function () {
 
     try {
       const context = getContext();
-      if (!context || !context.chat || !Array.isArray(context.chat)) {
-        console.warn('[test-main] No valid chat context available');
+
+      // 检查聊天数据是否可用
+      if (context && context.chat && Array.isArray(context.chat)) {
+        debugLog(`聊天数据可用，聊天数组长度:`, context.chat.length);
+
+        // 打印每一条聊天数据的mesid
+        context.chat.forEach((message, index) => {
+          debugLog(`聊天数据 #${index}, mesid:`, message.mesid);
+        });
+      } else {
+        debugLog(
+          `聊天数据不可用或无效:`,
+          context ? `chat属性: ${!!context.chat}, 是数组: ${Array.isArray(context?.chat)}` : '无context',
+        );
+      }
+
+      // 如果强制添加按钮，则直接为所有消息元素添加按钮
+      if (extension_settings[pluginName].forceButtons) {
+        allMessages.each(function () {
+          addButtonForce(this);
+        });
         return;
       }
 
-      $('.mes').each(function () {
-        const messageElement = this;
-        const messageId = $(messageElement).attr('mesid');
-        if (messageId) {
-          const message = context.chat.find(m => m.mesid === messageId);
-          if (message) {
-            addLogButton(messageElement, message);
+      // 否则，尝试为找到有效聊天数据的消息添加按钮
+      if (context && context.chat && Array.isArray(context.chat)) {
+        $('.mes').each(function () {
+          const messageElement = this;
+          const messageId = $(messageElement).attr('mesid');
+
+          if (messageId) {
+            // 尝试两种方式查找：字符串全等比较和数值比较（处理"0"与0的比较情况）
+            const message = context.chat.find(
+              m => String(m.mesid) === String(messageId) || m.mesid === parseInt(messageId),
+            );
+
+            if (message) {
+              addLogButton(messageElement, message);
+            } else {
+              debugLog(`消息ID ${messageId} 在聊天数据中未找到匹配`);
+              // 如果找不到匹配但已启用forceButtons，则强制添加按钮
+              if (extension_settings[pluginName].forceButtons) {
+                addButtonForce(messageElement);
+              }
+            }
           } else {
-            debugLog(`消息ID ${messageId} 在聊天数据中未找到匹配`);
+            debugLog(`消息元素没有 mesid 属性:`, $(messageElement).attr('class'));
+            // 如果没有mesid但已启用forceButtons，则强制添加按钮
+            if (extension_settings[pluginName].forceButtons) {
+              addButtonForce(messageElement);
+            }
           }
-        } else {
-          debugLog(`消息元素没有 mesid 属性:`, $(messageElement).attr('class'));
+        });
+      } else {
+        console.warn('[test-main] No valid chat context available');
+        // 如果聊天上下文不可用但启用了forceButtons，则对所有消息强制添加按钮
+        if (extension_settings[pluginName].forceButtons) {
+          $('.mes').each(function () {
+            addButtonForce(this);
+          });
         }
-      });
+      }
     } catch (error) {
       console.error('[test-main] Error adding buttons to existing messages:', error);
+      // 错误发生时，如果启用了forceButtons，则对所有消息强制添加按钮
+      if (extension_settings[pluginName].forceButtons) {
+        $('.mes').each(function () {
+          addButtonForce(this);
+        });
+      }
     }
   }
 
@@ -192,7 +370,7 @@ $(document).ready(function () {
 
       // 初始延迟后多次尝试添加按钮，确保能捕捉到DOM变化
       setTimeout(addButtonsToExistingMessages, 1000);
-      setTimeout(addButtonsToExistingMessages, 2000);
+      setTimeout(addButtonsToExistingMessages, 3000);
       setTimeout(addButtonsToExistingMessages, 5000);
     } catch (error) {
       console.error('[test-main] Error during EXTENSIONS_FIRST_LOAD handling:', error);
@@ -210,27 +388,30 @@ $(document).ready(function () {
     // 多次尝试添加按钮，确保DOM已完全渲染
     setTimeout(() => {
       try {
-        addLogButton(messageElement, mes);
+        if (!addLogButton(messageElement, mes) && extension_settings[pluginName].forceButtons) {
+          addButtonForce(messageElement);
+        }
       } catch (error) {
         console.error('[test-main] Error adding button after 100ms:', error);
+        // 出错时如果启用了forceButtons，尝试强制添加
+        if (extension_settings[pluginName].forceButtons) {
+          addButtonForce(messageElement);
+        }
       }
     }, 100);
 
     setTimeout(() => {
       try {
-        addLogButton(messageElement, mes);
+        if (!addLogButton(messageElement, mes) && extension_settings[pluginName].forceButtons) {
+          addButtonForce(messageElement);
+        }
       } catch (error) {
         console.error('[test-main] Error adding button after 500ms:', error);
+        if (extension_settings[pluginName].forceButtons) {
+          addButtonForce(messageElement);
+        }
       }
     }, 500);
-
-    setTimeout(() => {
-      try {
-        addLogButton(messageElement, mes);
-      } catch (error) {
-        console.error('[test-main] Error adding button after 1000ms:', error);
-      }
-    }, 1000);
   });
 
   // 添加设置 UI
@@ -257,6 +438,13 @@ $(document).ready(function () {
                               <option value="disabled">关闭</option>
                           </select>
                       </div>
+                      <div class="test-main-force-row">
+                          <span class="test-main-label">强制添加按钮:</span>
+                          <input type="checkbox" id="test-main-force-toggle" ${
+                            extension_settings[pluginName].forceButtons ? 'checked' : ''
+                          }>
+                          <span class="test-main-help">(即使没有匹配的消息数据也添加按钮)</span>
+                      </div>
                       <div class="test-main-debug-row">
                           <button id="test-main-debug-button" class="menu_button">立即添加按钮</button>
                       </div>
@@ -269,7 +457,7 @@ $(document).ready(function () {
     // 将UI添加到SillyTavern扩展设置区域
     $('#extensions_settings').append(settingsHtml);
 
-    // 设置事件监听器
+    // 设置事件监听器 - 开启/关闭插件
     $('#test-main-toggle').on('change', function () {
       extension_settings[pluginName].enabled = $(this).val() === 'enabled';
       console.log(`[test-main] Plugin ${extension_settings[pluginName].enabled ? 'enabled' : 'disabled'}`);
@@ -283,6 +471,20 @@ $(document).ready(function () {
         console.log('[test-main] Removed all log buttons due to plugin being disabled');
       } else {
         // 如果启用，重新添加按钮
+        addButtonsToExistingMessages();
+      }
+    });
+
+    // 设置事件监听器 - 强制添加按钮模式
+    $('#test-main-force-toggle').on('change', function () {
+      extension_settings[pluginName].forceButtons = $(this).prop('checked');
+      console.log(`[test-main] 强制添加按钮模式: ${extension_settings[pluginName].forceButtons ? '开启' : '关闭'}`);
+
+      // 保存设置
+      saveSettingsDebounced();
+
+      // 如果开启强制模式，重新添加按钮
+      if (extension_settings[pluginName].forceButtons && extension_settings[pluginName].enabled) {
         addButtonsToExistingMessages();
       }
     });
