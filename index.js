@@ -1,4 +1,4 @@
-import { eventSource, event_types } from '../script.js';
+import { eventSource, event_types } from '../../../script.js';
 
 // Function to add the log button to a message element
 function addLogButton(messageElement, mes) {
