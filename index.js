@@ -1,5 +1,5 @@
-import { eventSource, event_types } from '../../../script.js';
-import { extension_settings, getContext } from '../../extensions.js';
+import { eventSource, event_types } from '../../../../script.js';
+import { extension_settings, getContext } from '../../../extensions.js';
 
 // 插件名称常量
 const pluginName = 'test-main';
